@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Standup Spinner</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/htmx/1.9.10/htmx.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <style>
+        .spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .member-card {
+            transition: all 0.3s ease;
+        }
+        .member-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">🎯 Standup Spinner</h1>
+            <p class="text-gray-600">Spin the wheel for your daily standup order!</p>
+        </div>
+
+        <!-- Add Member Form -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Add Team Member</h2>
+            <form hx-post="http://localhost:8000/members/" 
+                  hx-target="#members-list" 
+                  hx-swap="innerHTML"
+                  hx-trigger="submit"
+                  class="flex gap-4">
+                <div class="flex-1">
+                    <input type="text" 
+                           name="name" 
+                           placeholder="Enter team member name" 
+                           required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div class="flex-1">
+                    <input type="text" 
+                           name="emoji" 
+                           placeholder="Enter emoji (optional)" 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <button type="submit" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+                    Add Member
+                </button>
+            </form>
+        </div>
+
+        <!-- Team Members -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">Team Members</h2>
+                <button hx-get="http://localhost:8000/members/" 
+                        hx-target="#members-list" 
+                        hx-swap="innerHTML"
+                        class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    Refresh
+                </button>
+            </div>
+            <div id="members-list" 
+                 hx-get="http://localhost:8000/members/" 
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <!-- Members will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Spinner Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Spin for Order</h2>
+            
+            <!-- Twist Options -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Choose a twist:</label>
+                <select id="twist-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <option value="none">No Twist</option>
+                    <option value="reverse">Reverse Order</option>
+                    <option value="random_skip">Random Skip</option>
+                    <option value="double_turn">Someone Goes Twice</option>
+                    <option value="pair_up">Pair Up</option>
+                </select>
+            </div>
+
+            <div class="text-center">
+                <button id="spin-button"
+                        onclick="spinTheWheel()"
+                        class="gradient-bg text-white px-8 py-4 rounded-lg text-xl font-bold hover:opacity-90 transition-opacity">
+                    🎰 SPIN THE WHEEL!
+                </button>
+            </div>
+
+            <!-- Spin Results -->
+            <div id="spin-results" class="mt-6">
+                <!-- Results will appear here -->
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">Statistics</h2>
+                <button hx-get="http://localhost:8000/stats/" 
+                        hx-target="#stats-content" 
+                        hx-swap="innerHTML"
+                        class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm transition-colors">
+                    Refresh Stats
+                </button>
+            </div>
+            <div id="stats-content" 
+                 hx-get="http://localhost:8000/stats/" 
+                 hx-trigger="load"
+                 hx-swap="innerHTML">
+                <!-- Stats will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function spinTheWheel() {
+          const button = document.getElementById('spin-button');
+          const resultsDiv = document.getElementById('spin-results');
+          const twistType = document.getElementById('twist-type').value;
+          
+          // Show loading state
+          button.innerHTML = '🎰 SPINNING...';
+          button.disabled = true;
+          button.classList.add('spinner');
+          
+          // Clear previous results
+          resultsDiv.innerHTML = '<div class="text-center text-gray-500">Spinning...</div>';
+          
+          // First, get the list of active members
+          fetch('http://localhost:8000/members/')
+              .then(response => response.json())
+              .then(members => {
+                  // Get active member IDs
+                  const memberIds = members
+                      .filter(member => member.is_active)
+                      .map(member => member.id);
+                  
+                  if (memberIds.length === 0) {
+                      throw new Error('No active members available');
+                  }
+                  
+                  // Create form data
+                  const formData = new FormData();
+                  formData.append('twist_type', twistType);
+                  memberIds.forEach(id => formData.append('member_ids', id));
+                  
+                  // Make the spin API call
+                  return fetch('http://localhost:8000/spin/', {
+                      method: 'POST',
+                      body: formData
+                  });
+              })
+              .then(response => response.json())
+              .then(data => {
+                  // Reset button
+                  button.innerHTML = '🎰 SPIN THE WHEEL!';
+                  button.disabled = false;
+                  button.classList.remove('spinner');
+                  
+                  // Show results
+                  displaySpinResults(data);
+                  
+                  // Refresh stats after spin
+                  htmx.trigger('#stats-content', 'htmx:trigger');
+              })
+              .catch(error => {
+                  console.error('Error:', error);
+                  button.innerHTML = '🎰 SPIN THE WHEEL!';
+                  button.disabled = false;
+                  button.classList.remove('spinner');
+                  resultsDiv.innerHTML = '<div class="text-red-500 text-center">Error: ' + error.message + '</div>';
+              });
+      }
+        
+        function displaySpinResults(data) {
+            const resultsDiv = document.getElementById('spin-results');
+            
+            let html = `
+                <div class="bg-gradient-to-r from-purple-400 to-pink-400 rounded-lg p-6 text-white">
+                    <h3 class="text-xl font-bold mb-4">🎉 Standup Order</h3>
+                    <div class="space-y-2">
+            `;
+            
+            data.order.forEach((member, index) => {
+                html += `
+                    <div class="flex items-center space-x-3 bg-white bg-opacity-20 rounded-lg p-3">
+                        <span class="text-2xl font-bold">${index + 1}</span>
+                        <span class="text-xl">${member.emoji || '👤'}</span>
+                        <span class="text-lg font-medium">${member.name}</span>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                    ${data.twist_applied ? `
+                        <div class="mt-4 bg-yellow-400 bg-opacity-30 rounded-lg p-3">
+                            <span class="text-sm font-medium">✨ Twist Applied: ${data.twist_description}</span>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        // Handle form submission success
+        document.body.addEventListener('htmx:afterRequest', function(event) {
+            if (event.detail.xhr.status === 200 && event.detail.elt.tagName === 'FORM') {
+                // Clear the form
+                event.detail.elt.reset();
+            }
+        });
+    </script>
+</body>
+</html>
